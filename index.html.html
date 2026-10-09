@@ -1,0 +1,72 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Textos privados</title>
+<style>
+:root{--bg:#faf7f2;--fg:#2a2420;--mut:#7a6f66;--card:#fff;--acc:#7b1e2b;--bd:#e4dccf;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#1d1916;--fg:#f0e9df;--mut:#a89d92;--card:#272220;--acc:#d98a96;--bd:#3a332f}}
+:root[data-theme="dark"]{--bg:#1d1916;--fg:#f0e9df;--mut:#a89d92;--card:#272220;--acc:#d98a96;--bd:#3a332f}
+html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--fg);font-family:Georgia,'Times New Roman',serif;line-height:1.6;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+main{width:100%;max-width:480px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:24px}
+h1{font-size:1.3rem;margin:0 0 6px;color:var(--acc)}
+p.s{color:var(--mut);margin:0 0 18px;font-size:.95rem}
+input,button{font:inherit;width:100%;box-sizing:border-box;padding:12px;border-radius:10px}
+input{border:1px solid var(--bd);background:var(--bg);color:var(--fg);margin-bottom:12px}
+button{border:0;background:var(--acc);color:#fff;cursor:pointer}
+#err{color:#c0392b;margin:10px 0 0;min-height:1.2em;font-size:.9rem}
+.v{border-left:3px solid var(--acc);padding:4px 0 4px 14px;margin:0 0 20px}
+.v b{display:block;color:var(--acc);font-size:.95rem}
+.v span{font-size:1.15rem}
+.out{margin-top:8px;background:none;border:1px solid var(--bd);color:var(--mut)}
+</style>
+</head>
+<body>
+<main>
+<div class="card" id="lock">
+<h1>Acceso privado</h1>
+<p class="s">Escribe la clave para ver los textos.</p>
+<input id="pw" type="password" placeholder="Clave" autocomplete="off">
+<button id="go">Entrar</button>
+<div id="err"></div>
+</div>
+<div class="card" id="view" hidden>
+<h1>Textos</h1>
+<div id="list"></div>
+<button class="out" id="out">Cerrar</button>
+</div>
+</main>
+<script>
+const SALT="YiCAC68cQjK8UgbyWBoxSw==",IV="jteEHp8rLemFVZHA",DATA="pShVta/kXDf9IrWBMg4vJOnI/VjbAgU8yeTn41cWmHH7lVwbbw/CDT3wd3QFC24LRZwJYewqGZ1WbTwSePYzP3/AnsT6vPthMm6gqBwUGcqu0u4fqdBh2MXXgegWj3JKm0fyOTEXbXf1dJhgsekFxIV0gdgMYxBeDlTjJJRXAk9g1VKYI6Bsw1qSsSYrLuokj6u/sOYepjjh5L0AnMq5MaEwUqtCE2m7/ImQQXnsz4ctrUmh86aJKya6kK43pzM=";
+const b64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+async function unlock(pw){
+  const km=await crypto.subtle.importKey('raw',new TextEncoder().encode(pw),'PBKDF2',false,['deriveKey']);
+  const key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:b64(SALT),iterations:200000,hash:'SHA-256'},km,{name:'AES-GCM',length:256},false,['decrypt']);
+  const buf=await crypto.subtle.decrypt({name:'AES-GCM',iv:b64(IV)},key,b64(DATA));
+  return JSON.parse(new TextDecoder().decode(buf));
+}
+const $=id=>document.getElementById(id);
+async function enter(){
+  $('err').textContent='';
+  try{
+    const items=await unlock($('pw').value);
+    const list=$('list');list.textContent='';
+    items.forEach(i=>{
+      const d=document.createElement('div');d.className='v';
+      const b=document.createElement('b');b.textContent=i.ref;
+      const s=document.createElement('span');s.textContent=i.text;
+      d.append(b,s);list.append(d);
+    });
+    $('lock').hidden=true;$('view').hidden=false;
+  }catch(e){$('err').textContent='Clave incorrecta.';}
+  $('pw').value='';
+}
+$('go').onclick=enter;
+$('pw').addEventListener('keydown',e=>{if(e.key==='Enter')enter();});
+$('out').onclick=()=>{$('view').hidden=true;$('lock').hidden=false;$('list').textContent='';};
+</script>
+</body>
+</html>
