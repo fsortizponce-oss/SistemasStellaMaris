@@ -10,13 +10,13 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <style>
 :root{
-  --celeste-bg:#4a9ebb;     /* Fondo celeste mariano general */
-  --celeste-deep:#32748f;   /* Celeste profundo para contrastes */
-  --celeste-card:#3b829e;   /* Color para tarjetas y bloques */
-  --gold:#d4af37;           /* Dorado litúrgico */
-  --gold-light:#ffea85;     /* Dorado claro brillante */
+  --celeste-bg:#4a9ebb;
+  --celeste-deep:#32748f;
+  --celeste-card:#3b829e;
+  --gold:#d4af37;
+  --gold-light:#ffea85;
   --white:#ffffff;
-  --text-light:#f0f8ff;     /* Texto claro */
+  --text-light:#f0f8ff;
   --error:#e05252;
   --success:#2e7d32;
   --border:rgba(212,175,55,0.4);
@@ -173,11 +173,12 @@ textarea{resize:vertical;min-height:80px}
 }
 .btn:hover{opacity:.9;transform:translateY(-1px)}
 .btn:active{transform:translateY(0)}
+.btn:disabled{opacity:.6;cursor:wait;transform:none}
 .btn.secondary{background:transparent;border:1px solid var(--gold);color:var(--gold-light)}
 .btn-row{display:flex;flex-wrap:wrap;gap:.7rem;margin-top:1.2rem}
 
 /* ── TOAST ── */
-.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(120px);background:var(--success);color:#fff;padding:.7rem 1.5rem;border-radius:20px;font-size:.88rem;z-index:999;transition:transform .35s;pointer-events:none}
+.toast{position:fixed;bottom:2rem;left:50%;transform:translateX(-50%) translateY(120px);background:var(--success);color:#fff;padding:.7rem 1.5rem;border-radius:20px;font-size:.88rem;z-index:999;transition:transform .35s;pointer-events:none;max-width:90vw;text-align:center}
 .toast.show{transform:translateX(-50%) translateY(0)}
 .toast.err{background:var(--error)}
 
@@ -254,7 +255,7 @@ textarea{resize:vertical;min-height:80px}
 
   <div class="poster-wrap">
     <!-- IMAGEN CARGADA DIRECTAMENTE -->
-    <img src="llamados y enviados.jpeg" alt="Afiche XVIII Convivencia Juvenil Vocacional" id="posterImg">
+    <img src="llamados-y-enviados.jpeg" alt="Afiche XVIII Convivencia Juvenil Vocacional" id="posterImg">
   </div>
 
   <div class="page-section">
@@ -423,7 +424,7 @@ textarea{resize:vertical;min-height:80px}
     </div>
     <div class="row3">
       <div class="field"><label>Edad <span class="required">*</span></label><input type="number" id="f_edad" min="15" max="29" required></div>
-     <div class="field"><label>Celular <span class="required">*</span></label><input type="text" id="f_Celular" required></div>
+      <div class="field"><label>Celular <span class="required">*</span></label><input type="tel" id="f_Celular" required></div>
       <div class="field"><label>Sexo <span class="required">*</span></label>
         <select id="f_sexo" required>
           <option value="">-- Selecciona --</option>
@@ -438,7 +439,7 @@ textarea{resize:vertical;min-height:80px}
       </div>
     </div>
     <div class="btn-row">
-      <button type="submit" class="btn">Enviar Inscripción</button>
+      <button type="submit" class="btn" id="btnEnviar">Enviar Inscripción</button>
     </div>
   </form>
 </div>
@@ -453,6 +454,14 @@ textarea{resize:vertical;min-height:80px}
 </section>
 
 <script>
+/* ══════════════════════════════════════════════
+   CONEXIÓN CON GOOGLE SHEETS / APPSHEET
+   Pega aquí la URL de tu implementación de Apps Script
+   (la que termina en /exec). Si falla, revisa que no
+   haya letras mal copiadas (l / 1, I / l, O / 0).
+   ══════════════════════════════════════════════ */
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwQ6L52tPSMDITU8mnRT29cLdUb_Vc66_9zw2cGEEhnP3dnF8xCLaZaaBJFE8LhP9z8/exec';
+
 function showTab(tabId) {
   document.querySelectorAll('.section').forEach(s => s.classList.remove('active'));
   document.querySelectorAll('.topnav button').forEach(b => b.classList.remove('active'));
@@ -467,10 +476,51 @@ function toggleFounder() {
   body.classList.toggle('open');
   arrow.textContent = body.classList.contains('open') ? '▲' : '▼';
 }
-function submitForm(e) {
-  e.preventDefault();
-  alert('¡Formulario enviado con éxito!');
+function showToast(msg, isError) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.toggle('err', !!isError);
+  t.classList.add('show');
+  setTimeout(() => t.classList.remove('show'), 4000);
 }
+
+async function submitForm(e) {
+  e.preventDefault();
+  const btn = document.getElementById('btnEnviar');
+  const textoOriginal = btn.textContent;
+
+  const datos = new URLSearchParams({
+    fecha:     new Date().toLocaleString('es-EC', { timeZone: 'America/Guayaquil' }),
+    nombre:    document.getElementById('f_nombre').value.trim(),
+    apellido:  document.getElementById('f_apellido').value.trim(),
+    edad:      document.getElementById('f_edad').value,
+    celular:   document.getElementById('f_Celular').value.trim(),
+    sexo:      document.getElementById('f_sexo').value,
+    estudios:  document.getElementById('f_estudios').value
+  });
+
+  btn.disabled = true;
+  btn.textContent = 'Enviando…';
+
+  try {
+    // no-cors: Apps Script no devuelve cabeceras CORS; la respuesta es opaca
+    // pero el registro llega a la hoja igualmente.
+    await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      body: datos
+    });
+    showToast('✅ ¡Inscripción enviada con éxito! Dios te bendiga.');
+    document.getElementById('regForm').reset();
+  } catch (err) {
+    console.error(err);
+    showToast('❌ No se pudo enviar. Revisa tu conexión e inténtalo de nuevo.', true);
+  } finally {
+    btn.disabled = false;
+    btn.textContent = textoOriginal;
+  }
+}
+
 // Cuenta regresiva al 25 de Octubre de 2026
 function actualizarContador() {
   const evento = new Date('2026-10-25T08:00:00').getTime();
@@ -488,3 +538,4 @@ actualizarContador();
 </script>
 </body>
 </html>
+
